@@ -1,0 +1,45 @@
+#include <stdint.h>
+
+void delay(uint32_t);
+
+int main() {
+    // Define pointers to peripheral registers
+    uint32_t *pAHB1ENR  = (uint32_t *)0x40023830;  // RCC AHB1ENR
+    uint32_t *pMODER    = (uint32_t *)0x40020000;  // GPIOA MODER
+    uint32_t *pIDR      = (uint32_t *)0x40020010;  // GPIOA IDR
+    uint32_t *pODR      = (uint32_t *)0x40020014;  // GPIOA ODR
+    uint32_t *pPUPDR    = (uint32_t *)0x4002000C;  // GPIOA PUPDR
+
+    // 1. Enable clock for GPIOA
+    *pAHB1ENR |= (1 << 0);  // Bit 0 enables GPIOA
+
+    // 2. Set PA0 as OUTPUT (MODER bits 1:0 = 0b01)
+    //*pMODER &= ~(0x3 << 0); // Clear bits
+    *pMODER |= (0x1 << 0);  // Set PA0 as output
+
+    // 3. Set PA2 as INPUT (default is input, but we clear just in case)
+    *pMODER &= ~(0x3 << 4); // PA2 MODER bits (bits 5:4) = 0b00
+
+    // 4. Enable Pull-Up for PA2 (PUPDR bits 5:4 = 0b01)
+    *pPUPDR &= ~(0x3 << 4); // Clear
+    *pPUPDR |=  (0x1 << 4); // Pull-up
+
+    while (1) {
+        
+
+        // Read PA2 (bit 2 in IDR)
+       uint8_t value = ((*pIDR >> 2) & 0x01);
+
+        if (value == 0) {
+            *pODR |= (1 << 0);   // Set PA0 (LED ON)
+        } else {
+            *pODR &= ~(1 << 0);  // Clear PA0 (LED OFF)
+        }
+
+        delay(100);  // optional delay
+    }
+}
+
+void delay(uint32_t k) {
+    for (uint32_t i = 0; i <= 1234 * k; i++);
+}
