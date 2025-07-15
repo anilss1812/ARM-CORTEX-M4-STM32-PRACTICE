@@ -1,0 +1,55 @@
+#include <stdint.h>
+#include <stdio.h>
+
+// Function prototype for SysTick delay
+void systickdelayms(int delay);
+
+// SysTick configuration for 1ms delay (Assuming system clock = 84MHz)
+#define SYST_LOAD_VALUE 84000  // 84000 cycles @ 84MHz = 1ms
+
+// SysTick control register bits
+#define SYST_CSR_ENABLE      (1U << 0)   // Enable SysTick
+#define SYST_CSR_SOURCECLK   (1U << 2)   // Use processor clock (AHB)
+#define SYST_CSR_CNTFLAG     (1U << 16)  // COUNTFLAG: set when timer reaches 0
+
+// RCC and GPIO definitions
+#define RCC_AHB1ENR          (1U << 2)   // Enable GPIOC clock
+#define LED_ODR              (1U << 13)  // PC13 (on-board LED on STM32F411CEU6)
+
+// SysTick register addresses (CMSIS-like direct access)
+uint32_t *pSTCSR = (uint32_t*)0xE000E010;  // SysTick Control and Status Register
+uint32_t *pSTRVR = (uint32_t*)0xE000E014;  // SysTick Reload Value Register
+uint32_t *pSTCVR = (uint32_t*)0xE000E018;  // SysTick Current Value Register
+
+// RCC and GPIOC registers
+uint32_t *pAHB1ENR    = (uint32_t*)0x40023830;  // RCC AHB1 peripheral clock enable register
+uint32_t *pGPIOMODER  = (uint32_t*)0x40020800;  // GPIOC mode register
+uint32_t *pGPIOODR    = (uint32_t*)0x40020814;  // GPIOC output data register
+
+// Delay function using SysTick timer
+void systickdelayms(int delay) {
+    for (int i = 0; i < delay; i++) {
+        *pSTRVR = SYST_LOAD_VALUE;                              // Load value for 1ms
+        *pSTCVR = 0;                                             // Clear current count value
+        *pSTCSR = SYST_CSR_ENABLE | SYST_CSR_SOURCECLK;          // Enable SysTick with processor clock
+
+        while ((*pSTCSR & SYST_CSR_CNTFLAG) == 0);              // Wait for COUNTFLAG = 1 (1ms passed)
+
+        *pSTCSR = 0;                                             // Stop SysTick after each iteration
+    }
+}
+
+int main(void) {
+    // Enable clock for GPIOC
+    *pAHB1ENR |= RCC_AHB1ENR;
+
+    // Configure PC13 as output
+    *pGPIOMODER &= ~(3U << 26);  // Clear mode bits for pin 13
+    *pGPIOMODER |=  (1U << 26);  // Set pin 13 to General Purpose Output (01)
+
+    // Infinite loop: Blink LED every 100ms
+    while (1) {
+        *pGPIOODR ^= LED_ODR;     // Toggle PC13 (on-board LED)
+        systickdelayms(100);      // Delay 100ms
+    }
+}
