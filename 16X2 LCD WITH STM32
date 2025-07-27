@@ -1,0 +1,103 @@
+#include <stdint.h>
+#include "stm32f4xx.h"
+
+#define RS 0x20 //PB5 - RS(0010 0000)
+#define RW 0x40 //PB6 - RS(0100 0000)
+#define EN 0x80 //PB7 - RS(1000 0000)
+
+//PC0 - PC7 -> D0-D7 in LCD
+
+unsigned char message1[] = ("LCD DEMO BY ");
+unsigned char message2[] = ("Anil sri sai");
+
+void GPIO_INIT (void);
+void LCD_command(unsigned char command);
+void LCD_Data(unsigned char data);
+void delayms(unsigned int ms);
+void LCD_INIT(void);
+void delayms(unsigned int ms)
+{
+	for(unsigned int i=0;i<ms;i++){
+		for(unsigned int j=0;j<16000;j++);
+	}
+}
+
+void LCD_Data(unsigned char data)
+{
+	//RS=1 , RW =0
+	GPIOB->BSRR = RS;
+	//GPIOB->BSRR |= (RW<<16);
+    GPIOA->ODR = (GPIOA->ODR & 0xFFFFFF00) | data;
+   //en is set and reset
+    GPIOB->BSRR =EN;
+	delayms(20);
+    GPIOB->BSRR =(EN<<16);
+	delayms(20);
+
+}
+
+void LCD_command(unsigned char command)
+{
+	//RS=0 , RW =0
+	GPIOB->BSRR = RS<<16;
+	GPIOA->ODR = (GPIOA->ODR & 0xFFFFFF00) | command;
+	//en is set and reset
+	GPIOB->BSRR =EN;
+	delayms(3);
+	GPIOB->BSRR =(EN<<16);
+	delayms(3);
+}
+
+void GPIO_INIT (void){
+	//set RCC AHB1ENR
+	RCC->AHB1ENR |= 0x03;
+	//SET GPIOB MODE REG AS O/P PB5,6,7
+	GPIOB->MODER &= ~(0x3F << 10); // Clear PB5,6,7
+	GPIOB->MODER |=  (0x15 << 10); // Set as output (01)
+	//SET GPIOC MODE REG AS O/P PC0-7
+	GPIOA->MODER &= ~(0xFFFF);     // Clear PA0-7
+	GPIOA->MODER |= 0x5555;        // Set PA0-7 as output
+	//SET BSRR OF GPIOB AS LOW RS AND EN
+    GPIOB->BSRR =(RS<<16)|(EN<<16);
+}
+
+
+void LCD_INIT(void)
+{
+	unsigned char i=0;
+	GPIO_INIT();
+	LCD_command(0x38); // Function set
+	delayms(2);
+	LCD_command(0x08); // Display OFF
+	delayms(2);
+	LCD_command(0x01); // Display Clear
+	delayms(2);
+	LCD_command(0x06); // Entry Mode
+	delayms(2);
+	LCD_command(0x0C); // Display ON
+	delayms(2);
+	LCD_command(0x80); // Set 1st line
+	delayms(2);
+	
+
+	while(message1[i]!='\0'){
+		LCD_Data(message1[i]);
+		i++;
+	}
+	
+	// Write 2nd line (max 16 chars)
+    LCD_command(0xC0);  // Cursor to 2nd line, position 0
+    i = 0;
+    while(message2[i] != '\0') {
+        LCD_Data(message2[i]);
+        i++;
+		}
+	
+}
+
+int main(void)
+{
+	LCD_INIT();
+
+	for(;;);
+}
