@@ -1,0 +1,96 @@
+#include <stdio.h>
+#include <stdint.h>
+
+//ENABLE CLK FOR AHB1ENR GPIO
+ uint32_t *pAHB1ENR = (uint32_t*)0x40023830;
+//ENABLE CLK FOR APB1ENR USART
+ uint32_t *pAPB1ENR = (uint32_t*)0x40023840;
+//GPIOA_MODER
+ uint32_t *pGPIOA_MODER = (uint32_t*)0x40020000;
+ //GPIOC_MODER FOR LED
+  uint32_t *pGPIOC_MODER = (uint32_t*)0x40020800;
+
+//GPIOA_ODR FOR LED
+ uint32_t *pGPIOC_ODR = (uint32_t*)0x40020814;
+//GPIOA_AFRL
+ uint32_t *pGPIOA_AFRL = (uint32_t*)0x40020020;
+//USART_SR
+ uint32_t *pUSART_SR = (uint32_t*)0x40004400;
+//USART_CR1
+ uint32_t *pUSART_CR1 = (uint32_t*)0x4000440c;
+//USART_BBR
+ uint32_t *pUSART_BRR = (uint32_t*)0x40004408;
+//USART_DR
+ uint32_t *pUSART_DR = (uint32_t*)0x40004404;
+
+void UART_INIT(void);
+void uart_write(int ch);
+char uart_read(void);
+
+void UART_INIT(void)
+{
+	//ENABLE CLK of AHB1ENR FOR GPIOA
+	*pAHB1ENR |=(1U<<0);
+	//ENABLE CLK of AHB1ENR FOR GPIOC FOR LED
+	*pAHB1ENR |=(1U<<2);
+	//ENABLE CLK FOR APB1ENR USART2(pin-no17)
+	*pAPB1ENR |=(1U<<17);
+	//SET GPIOA_MODER TO ALTERANET FUNCTION PA2 AND PA3
+	*pGPIOA_MODER &=~(1U<<4);
+	*pGPIOA_MODER |=(1U<<5);
+	*pGPIOA_MODER &=~(1U<<6);
+	*pGPIOA_MODER |=(1U<<7);
+	//SET GPIOA_MODER TO OUTPUT PC13
+	*pGPIOC_MODER |=(1U<<26);
+	*pGPIOC_MODER &=~(1U<<27);
+	//SET GPIOA_AFRL TO AF7 TO PA2-TX
+	*pGPIOA_AFRL |= (1U<<8) | (1U<<9) | (1U<<10);
+	*pGPIOA_AFRL &=~ (1U<<11);
+	//SET GPIOA_AFRL TO AF7 TO PA3-RX
+	*pGPIOA_AFRL |= (1U<<12) | (1U<<13) | (1U<<14);
+	*pGPIOA_AFRL &=~ (1U<<15);
+	//USART_CR1 ENABLE TE AND RE
+	*pUSART_CR1 |= (1U<<2);
+	*pUSART_CR1 |= (1U<<3);
+	*pUSART_CR1 |= (1U<<13);
+	//SET BAURD RATE TO 9600 BR=(((CLK+(BR/2)/BR)=(((16000000+(9600/2))/9600)=1,667==0X0683
+	*pUSART_BRR = 0X0683;
+}
+char uart_read(void)
+	{
+		while(!(*pUSART_SR & (1U<<5))){}
+		return *pUSART_DR;
+	}
+
+void uart_write(int ch)
+{
+	while(!(*pUSART_SR & (1U<<7))){}
+	*pUSART_DR =(uint8_t)ch;
+}
+
+
+int __io_putchar(int ch)
+{
+	uart_write(ch);
+	return ch;
+}
+int main(void)
+{
+    char ch;
+    UART_INIT();
+
+    printf("Enter to the loop\n");
+
+    while (1) {
+    	ch=uart_read();
+    			if (ch=='a')
+    			{
+    				 *pGPIOC_ODR |=(1<<13);
+    			}else if(ch=='b')
+    			{
+    				 *pGPIOC_ODR &=~(1<<13);
+
+    			}
+    			printf("Data is  %c \n", ch);
+    		}
+}   
